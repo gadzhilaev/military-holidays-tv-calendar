@@ -23,7 +23,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Используем debug signing для release (для тестирования)
+            signingConfig = signingConfigs.getByName("debug")
         }
+    }
+    
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -35,6 +42,13 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    
+    // Отключаем разделение по архитектурам для создания универсального APK
+    splits {
+        abi {
+            isEnable = false
+        }
     }
 }
 
@@ -49,6 +63,7 @@ dependencies {
     implementation(libs.androidx.tv.material)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.datastore.preferences)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)

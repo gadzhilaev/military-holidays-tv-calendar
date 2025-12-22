@@ -1,24 +1,30 @@
 package com.example.military_holidays_tv_calendar
 
-import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,20 +32,37 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
+import com.example.military_holidays_tv_calendar.data.AppPreferences
 import com.example.military_holidays_tv_calendar.repository.HolidayRepository
+import com.example.military_holidays_tv_calendar.ui.FirstLaunchDialog
+import com.example.military_holidays_tv_calendar.ui.SettingsDialog
 import com.example.military_holidays_tv_calendar.ui.UiState
 import com.example.military_holidays_tv_calendar.ui.theme.MilitaryholidaystvcalendarTheme
+import com.example.military_holidays_tv_calendar.utils.TvUtils
+import com.example.military_holidays_tv_calendar.utils.AutostartPermissionHelper
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import android.graphics.BitmapFactory
+import android.os.Build
+import android.provider.Settings
+import android.util.Log
+import android.widget.Toast
 import java.io.IOException
 
+private const val TAG = "MainActivity"
+
 class MainActivity : ComponentActivity() {
+    
     @OptIn(ExperimentalTvMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,6 +76,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    
     
     private fun setupFullscreen() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -81,10 +105,69 @@ class MainActivity : ComponentActivity() {
 fun MainScreen() {
     val context = LocalContext.current
     val holidayRepository = remember { HolidayRepository(context) }
+    val preferences = remember { AppPreferences(context) }
+    val scope = rememberCoroutineScope()
     
     val moscowZone = ZoneId.of("Europe/Moscow")
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+    
+    // Состояния для диалогов
+    var showFirstLaunchDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    var showToast by remember { mutableStateOf<String?>(null) }
+    
+    // Загружаем настройки
+    val isFirstLaunchFlow by preferences.isFirstLaunch.collectAsState(initial = true)
+    val autoStartEnabled by preferences.autoStartEnabled.collectAsState(initial = false)
+    
+    // Проверяем первый запуск синхронно при инициализации
+    var isFirstLaunchChecked by remember { mutableStateOf<Boolean?>(null) }
+    
+    LaunchedEffect(Unit) {
+        val isFirst = preferences.getIsFirstLaunch()
+        isFirstLaunchChecked = isFirst
+        Log.d(TAG, "Проверка первого запуска: isFirstLaunch=$isFirst")
+        
+        if (isFirst && TvUtils.isAndroidTv(context) && !showFirstLaunchDialog) {
+            Log.d(TAG, "Первый запуск обнаружен, показываем диалог первого запуска")
+            showFirstLaunchDialog = true
+        } else if (!isFirst) {
+            Log.d(TAG, "Это не первый запуск, диалог не показываем")
+        }
+    }
+    
+    // Обновляем состояние при изменении Flow и проверяем снова
+    LaunchedEffect(isFirstLaunchFlow) {
+        if (isFirstLaunchChecked != isFirstLaunchFlow) {
+            val oldValue = isFirstLaunchChecked
+            isFirstLaunchChecked = isFirstLaunchFlow
+            Log.d(TAG, "isFirstLaunch изменен через Flow: $oldValue -> $isFirstLaunchFlow")
+            
+            // Если значение изменилось на false, скрываем диалог
+            if (!isFirstLaunchFlow && showFirstLaunchDialog) {
+                Log.d(TAG, "firstLaunch стал false, скрываем диалог")
+                showFirstLaunchDialog = false
+            }
+        }
+    }
+    
+    // Логируем изменения состояния диалогов
+    LaunchedEffect(showFirstLaunchDialog) {
+        if (showFirstLaunchDialog) {
+            Log.d(TAG, "Диалог первого запуска показан")
+        } else {
+            Log.d(TAG, "Диалог первого запуска скрыт")
+        }
+    }
+    
+    LaunchedEffect(showSettingsDialog) {
+        if (showSettingsDialog) {
+            Log.d(TAG, "Диалог настроек показан")
+        } else {
+            Log.d(TAG, "Диалог настроек скрыт")
+        }
+    }
     
     var uiState by remember {
         mutableStateOf(
@@ -98,6 +181,12 @@ fun MainScreen() {
             )
         )
     }
+    
+    // Обработка долгого нажатия
+    var longPressStartTime by remember { mutableStateOf<Long?>(null) }
+    var isLongPressing by remember { mutableStateOf(false) }
+    var keyPressStartTime by remember { mutableStateOf<Long?>(null) }
+    var isKeyPressing by remember { mutableStateOf(false) }
     
     // Обновление времени каждую секунду и проверка праздников в полночь
     LaunchedEffect(Unit) {
@@ -124,10 +213,75 @@ fun MainScreen() {
         }
     }
     
+    // Обработка долгого нажатия (тап)
+    LaunchedEffect(isLongPressing, longPressStartTime) {
+        if (isLongPressing && longPressStartTime != null && !showFirstLaunchDialog) {
+            delay(3000)
+            if (isLongPressing && !showFirstLaunchDialog) {
+                Log.d(TAG, "Долгое нажатие (тап) обнаружено, открываем диалог настроек")
+                showSettingsDialog = true
+                isLongPressing = false
+                longPressStartTime = null
+            }
+        }
+    }
+    
+    // Обработка долгого нажатия (клавиатура)
+    LaunchedEffect(isKeyPressing, keyPressStartTime) {
+        if (isKeyPressing && keyPressStartTime != null && !showFirstLaunchDialog) {
+            delay(3000)
+            if (isKeyPressing && !showFirstLaunchDialog) {
+                Log.d(TAG, "Долгое нажатие (клавиатура) обнаружено, открываем диалог настроек")
+                showSettingsDialog = true
+                isKeyPressing = false
+                keyPressStartTime = null
+            }
+        }
+    }
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(androidx.tv.material3.MaterialTheme.colorScheme.background)
+            .onKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown) {
+                    when (event.key) {
+                        Key.DirectionCenter,
+                        Key.Enter -> {
+                            val currentTime = System.currentTimeMillis()
+                            if (keyPressStartTime == null) {
+                                keyPressStartTime = currentTime
+                                isKeyPressing = true
+                            }
+                            true
+                        }
+                        else -> false
+                    }
+                } else if (event.type == KeyEventType.KeyUp) {
+                    when (event.key) {
+                        Key.DirectionCenter,
+                        Key.Enter -> {
+                            isKeyPressing = false
+                            keyPressStartTime = null
+                            true
+                        }
+                        else -> false
+                    }
+                } else {
+                    false
+                }
+            }
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                // При тапе начинаем отсчет долгого нажатия
+                val currentTime = System.currentTimeMillis()
+                if (longPressStartTime == null) {
+                    longPressStartTime = currentTime
+                    isLongPressing = true
+                }
+            }
     ) {
         // Фоновое изображение
         val bitmap = remember(uiState.backgroundImagePath) {
@@ -149,7 +303,8 @@ fun MainScreen() {
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(24.dp),
-            style = androidx.tv.material3.MaterialTheme.typography.headlineMedium
+            style = androidx.tv.material3.MaterialTheme.typography.headlineMedium,
+            color = androidx.compose.ui.graphics.Color.Black
         )
         
         // Время в правом верхнем углу
@@ -158,8 +313,142 @@ fun MainScreen() {
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(24.dp),
-            style = androidx.tv.material3.MaterialTheme.typography.headlineMedium
+            style = androidx.tv.material3.MaterialTheme.typography.headlineMedium,
+            color = androidx.compose.ui.graphics.Color.Black
         )
+        
+        // Диалог первого запуска
+        if (showFirstLaunchDialog) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.7f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { /* Блокируем клики на фоне */ },
+                contentAlignment = Alignment.Center
+            ) {
+                FirstLaunchDialog(
+                    onYesClick = {
+                        Log.d(TAG, "Обработка нажатия 'Да' в диалоге первого запуска")
+                        scope.launch {
+                            try {
+                                preferences.setFirstLaunch(false)
+                                Log.d(TAG, "firstLaunch установлен в false")
+                                
+                                preferences.setAutoStartEnabled(true)
+                                Log.d(TAG, "autoStartEnabled установлен в true")
+                                
+                                // Проверяем что сохранилось
+                                val savedFirstLaunch = preferences.getIsFirstLaunch()
+                                val savedAutoStart = preferences.getAutoStartEnabled()
+                                Log.d(TAG, "Проверка сохранения: firstLaunch=$savedFirstLaunch, autoStartEnabled=$savedAutoStart")
+                                
+                                showFirstLaunchDialog = false
+                                
+                                // Запрашиваем разрешение на показ поверх других окон (критично для автозапуска)
+                                // Это откроет экран "Allow display over other apps"
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                    Log.d(TAG, "Запрашиваем разрешение на показ поверх других окон")
+                                    AutostartPermissionHelper.requestOverlayPermission(context)
+                                    showToast = "Включите разрешение 'Показ поверх других окон' для автозапуска."
+                                } else {
+                                    // Для старых версий Android просто запрашиваем автозапуск
+                                    AutostartPermissionHelper.requestAutostartPermission(context)
+                                    showToast = "Включите автозапуск в открывшихся настройках системы."
+                                }
+                                
+                                Log.d(TAG, "Автозапуск включен, запрошено разрешение, диалог первого запуска закрыт")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Ошибка при сохранении настроек", e)
+                            }
+                        }
+                    },
+                    onNoClick = {
+                        Log.d(TAG, "Обработка нажатия 'Нет' в диалоге первого запуска")
+                        scope.launch {
+                            try {
+                                preferences.setFirstLaunch(false)
+                                Log.d(TAG, "firstLaunch установлен в false")
+                                
+                                preferences.setAutoStartEnabled(false)
+                                Log.d(TAG, "autoStartEnabled установлен в false")
+                                
+                                // Проверяем что сохранилось
+                                val savedFirstLaunch = preferences.getIsFirstLaunch()
+                                val savedAutoStart = preferences.getAutoStartEnabled()
+                                Log.d(TAG, "Проверка сохранения: firstLaunch=$savedFirstLaunch, autoStartEnabled=$savedAutoStart")
+                                
+                                showFirstLaunchDialog = false
+                                Log.d(TAG, "Автозапуск отключен, диалог первого запуска закрыт")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Ошибка при сохранении настроек", e)
+                            }
+                        }
+                    }
+                )
+            }
+        }
+        
+        // Окно настроек
+        if (showSettingsDialog) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.7f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { /* Блокируем клики на фоне */ },
+                contentAlignment = Alignment.Center
+            ) {
+                SettingsDialog(
+                    autoStartEnabled = autoStartEnabled,
+                    onSave = { enabled ->
+                        Log.d(TAG, "Обработка нажатия 'Сохранить' в диалоге настроек, autoStartEnabled=$enabled")
+                        scope.launch {
+                            preferences.setAutoStartEnabled(enabled)
+                            showSettingsDialog = false
+                            
+                            // Если автозапуск включен, запрашиваем системное разрешение
+                            if (enabled) {
+                                Log.d(TAG, "Автозапуск включен, запрашиваем системное разрешение")
+                                
+                                // Запрашиваем разрешение на показ поверх других окон (критично для автозапуска)
+                                // Это откроет экран "Allow display over other apps"
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                    Log.d(TAG, "Запрашиваем разрешение на показ поверх других окон")
+                                    AutostartPermissionHelper.requestOverlayPermission(context)
+                                    showToast = "Включите разрешение 'Показ поверх других окон' для автозапуска."
+                                } else {
+                                    // Для старых версий Android просто запрашиваем автозапуск
+                                    AutostartPermissionHelper.requestAutostartPermission(context)
+                                    showToast = "Включите автозапуск в открывшихся настройках системы."
+                                }
+                            } else {
+                                Log.d(TAG, "Автозапуск отключен")
+                            }
+                            
+                            Log.d(TAG, "Настройки сохранены, диалог настроек закрыт")
+                        }
+                    },
+                    onCancel = {
+                        Log.d(TAG, "Обработка нажатия 'Отмена' в диалоге настроек")
+                        showSettingsDialog = false
+                        Log.d(TAG, "Диалог настроек закрыт без сохранения")
+                    }
+                )
+            }
+        }
+    }
+    
+    // Показ Toast сообщения
+    showToast?.let { message ->
+        LaunchedEffect(message) {
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            showToast = null
+        }
     }
 }
 
@@ -174,7 +463,8 @@ private fun getBackgroundImagePath(
     val holidayImage = repository.getHolidayImage(dateKey)
     
     return if (holidayImage != null) {
-        "images/$holidayImage"
+        // Сначала проверяем в папке holidays, затем в images
+        "holidays/$holidayImage"
     } else {
         "images/russia_flag.png"
     }
@@ -193,13 +483,32 @@ private fun loadImageFromAssets(context: android.content.Context, path: String):
     } catch (e: IOException) {
         e.printStackTrace()
         // Если это не было изображение по умолчанию, пытаемся загрузить его
-        if (path != "images/russia_flag.png") {
-            try {
-                val defaultStream = context.assets.open("images/russia_flag.png")
-                BitmapFactory.decodeStream(defaultStream)
-            } catch (e2: IOException) {
-                e2.printStackTrace()
-                null
+        if (path != "images/russia_flag.png" && !path.startsWith("images/")) {
+            // Если путь начинается с holidays/, пробуем также в images/
+            if (path.startsWith("holidays/")) {
+                val imageName = path.substringAfter("holidays/")
+                try {
+                    val alternativeStream = context.assets.open("images/$imageName")
+                    BitmapFactory.decodeStream(alternativeStream)
+                } catch (e2: IOException) {
+                    // Если не найдено в images, пробуем russia_flag.png
+                    try {
+                        val defaultStream = context.assets.open("images/russia_flag.png")
+                        BitmapFactory.decodeStream(defaultStream)
+                    } catch (e3: IOException) {
+                        e3.printStackTrace()
+                        null
+                    }
+                }
+            } else {
+                // Пробуем загрузить russia_flag.png
+                try {
+                    val defaultStream = context.assets.open("images/russia_flag.png")
+                    BitmapFactory.decodeStream(defaultStream)
+                } catch (e2: IOException) {
+                    e2.printStackTrace()
+                    null
+                }
             }
         } else {
             // Если уже пытались загрузить russia_flag.png и не получилось
