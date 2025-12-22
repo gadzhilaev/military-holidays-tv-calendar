@@ -11,10 +11,9 @@ android {
     defaultConfig {
         applicationId = "com.example.military_holidays_tv_calendar"
         minSdk = 23
-        targetSdk = 35
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
-
     }
 
     buildTypes {
@@ -29,6 +28,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "11"
@@ -39,7 +39,6 @@ android {
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(platform(libs.androidx.compose.bom))
@@ -50,6 +49,7 @@ dependencies {
     implementation(libs.androidx.tv.material)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
