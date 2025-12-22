@@ -1,0 +1,4 @@
+<resources>
+
+    <style name="Theme.Militaryholidaystvcalendar" parent="Theme.AppCompat.DayNight.NoActionBar" />
+</resources>
