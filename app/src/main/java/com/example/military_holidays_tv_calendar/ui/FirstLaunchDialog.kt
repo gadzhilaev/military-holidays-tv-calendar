@@ -2,8 +2,6 @@ package com.example.military_holidays_tv_calendar.ui
 
 import android.util.Log
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +15,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
@@ -31,9 +36,13 @@ fun FirstLaunchDialog(
     onNoClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Логируем показ диалога
+    val yesButtonFocusRequester = remember { FocusRequester() }
+    val noButtonFocusRequester = remember { FocusRequester() }
+    
+    // Логируем показ диалога и устанавливаем фокус на первую кнопку
     LaunchedEffect(Unit) {
         Log.d(TAG, "FirstLaunchDialog показан")
+        yesButtonFocusRequester.requestFocus()
     }
     
     Box(
@@ -64,14 +73,7 @@ fun FirstLaunchDialog(
                         Log.d(TAG, "Кнопка 'Да' нажата")
                         onYesClick()
                     },
-                    modifier = Modifier
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            Log.d(TAG, "Кнопка 'Да' нажата (через clickable)")
-                            onYesClick()
-                        }
+                    modifier = Modifier.focusRequester(yesButtonFocusRequester)
                 ) {
                     Text("Да")
                 }
@@ -80,14 +82,7 @@ fun FirstLaunchDialog(
                         Log.d(TAG, "Кнопка 'Нет' нажата")
                         onNoClick()
                     },
-                    modifier = Modifier
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            Log.d(TAG, "Кнопка 'Нет' нажата (через clickable)")
-                            onNoClick()
-                        }
+                    modifier = Modifier.focusRequester(noButtonFocusRequester)
                 ) {
                     Text("Нет")
                 }
