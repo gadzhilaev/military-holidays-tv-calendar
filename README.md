@@ -1,6 +1,14 @@
 ![Android TV приложение - Календарь военных праздников](app/src/main/assets/images/Android%20TV%20приложение%20-%20Календарь%20военных%20праздников.png)
 # Android TV приложение - Календарь военных праздников
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Kotlin-1.9+-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin"/>
+  <img src="https://img.shields.io/badge/Jetpack%20Compose-TV%20UI-3DDC84?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose TV"/>
+  <img src="https://img.shields.io/badge/Android%20TV-Leanback-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android TV / Leanback"/>
+  <img src="https://img.shields.io/badge/DataStore-Preferences-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white" alt="DataStore Preferences"/>
+  <img src="https://img.shields.io/badge/Coroutines-Flow-0095D5?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin Coroutines"/>
+</p>
+
 Android TV приложение для отображения календаря военных праздников России с автоматической сменой фоновых изображений.
 
 ## Описание
