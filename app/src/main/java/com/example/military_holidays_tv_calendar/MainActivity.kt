@@ -11,7 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -284,52 +283,42 @@ fun MainScreen() {
             )
         }
         
-        // Дата в левом верхнем углу с подложкой и тенью для читаемости
+        // Дата в левом верхнем углу без подложки, с крупным зелёным текстом и лёгкой обводкой
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(10.dp)
-                .background(
-                    color = Color.Black.copy(alpha = 0.3f),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .padding(28.dp)
         ) {
             Text(
                 text = uiState.currentDate.format(dateFormatter),
                 style = androidx.tv.material3.MaterialTheme.typography.headlineMedium.copy(
-                    fontSize = 28.sp,
+                    fontSize = 80.sp,
                     fontWeight = FontWeight.SemiBold,
                     shadow = Shadow(
-                        color = Color.Black,
-                        offset = Offset(0f, 0f),
-                        blurRadius = 6f
+                        color = Color.Black.copy(alpha = 0.9f),
+                        offset = Offset(3f, 3f),
+                        blurRadius = 10f
                     )
                 ),
                 color = Color.White
             )
         }
         
-        // Время в правом верхнем углу с подложкой и тенью
+        // Время в правом верхнем углу без подложки, с крупным зелёным текстом и лёгкой обводкой
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(10.dp)
-                .background(
-                    color = Color.Black.copy(alpha = 0.3f),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .padding(28.dp)
         ) {
             Text(
                 text = uiState.currentTime.format(timeFormatter),
                 style = androidx.tv.material3.MaterialTheme.typography.headlineMedium.copy(
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 80.sp,
+                    fontWeight = FontWeight.Bold,
                     shadow = Shadow(
-                        color = Color.Black,
-                        offset = Offset(0f, 0f),
-                        blurRadius = 6f
+                        color = Color.Black.copy(alpha = 0.9f),
+                        offset = Offset(3f, 3f),
+                        blurRadius = 10f
                     )
                 ),
                 color = Color.White
