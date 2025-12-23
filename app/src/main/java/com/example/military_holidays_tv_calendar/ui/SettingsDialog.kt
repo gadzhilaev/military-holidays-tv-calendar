@@ -2,9 +2,7 @@ package com.example.military_holidays_tv_calendar.ui
 
 import android.util.Log
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,10 +39,13 @@ fun SettingsDialog(
 ) {
     var currentAutoStart by remember { mutableStateOf(autoStartEnabled) }
     val checkboxFocusRequester = remember { FocusRequester() }
+    val cancelButtonFocusRequester = remember { FocusRequester() }
+    val saveButtonFocusRequester = remember { FocusRequester() }
     
-    // Логируем показ диалога
+    // Логируем показ диалога и устанавливаем фокус на чекбокс
     LaunchedEffect(Unit) {
         Log.d(TAG, "SettingsDialog показан, autoStartEnabled=$autoStartEnabled")
+        checkboxFocusRequester.requestFocus()
     }
     
     Box(
@@ -96,14 +97,7 @@ fun SettingsDialog(
                         Log.d(TAG, "Кнопка 'Отмена' нажата")
                         onCancel()
                     },
-                    modifier = Modifier
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            Log.d(TAG, "Кнопка 'Отмена' нажата (через clickable)")
-                            onCancel()
-                        }
+                    modifier = Modifier.focusRequester(cancelButtonFocusRequester)
                 ) {
                     Text("Отмена")
                 }
@@ -112,14 +106,7 @@ fun SettingsDialog(
                         Log.d(TAG, "Кнопка 'Сохранить' нажата, autoStartEnabled=$currentAutoStart")
                         onSave(currentAutoStart)
                     },
-                    modifier = Modifier
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            Log.d(TAG, "Кнопка 'Сохранить' нажата (через clickable), autoStartEnabled=$currentAutoStart")
-                            onSave(currentAutoStart)
-                        }
+                    modifier = Modifier.focusRequester(saveButtonFocusRequester)
                 ) {
                     Text("Сохранить")
                 }
