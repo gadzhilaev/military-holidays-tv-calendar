@@ -19,8 +19,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
 import androidx.tv.material3.Checkbox
@@ -48,6 +55,8 @@ fun SettingsDialog(
         checkboxFocusRequester.requestFocus()
     }
     
+    var isCheckboxFocused by remember { mutableStateOf(false) }
+    
     Box(
         modifier = modifier
             .fillMaxWidth(0.7f)
@@ -67,20 +76,31 @@ fun SettingsDialog(
             )
             
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(checkboxFocusRequester)
-                    .focusable(),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Checkbox(
-                    checked = currentAutoStart,
-                    onCheckedChange = { newValue ->
-                        Log.d(TAG, "Чекбокс автозапуска изменен: $currentAutoStart -> $newValue")
-                        currentAutoStart = newValue
-                    }
-                )
+                Box(
+                    modifier = Modifier
+                        .shadow(
+                            elevation = if (isCheckboxFocused) 8.dp else 0.dp,
+                            shape = RoundedCornerShape(4.dp)
+                        )
+                ) {
+                    Checkbox(
+                        checked = currentAutoStart,
+                        onCheckedChange = { newValue ->
+                            Log.d(TAG, "Чекбокс автозапуска изменен: $currentAutoStart -> $newValue")
+                            currentAutoStart = newValue
+                        },
+                        modifier = Modifier
+                            .focusRequester(checkboxFocusRequester)
+                            .onFocusChanged { focusState ->
+                                isCheckboxFocused = focusState.isFocused
+                                Log.d(TAG, "Чекбокс фокус изменен: ${focusState.isFocused}")
+                            }
+                    )
+                }
                 Text(
                     text = "Автозапуск при включении телевизора",
                     style = androidx.tv.material3.MaterialTheme.typography.bodyLarge,

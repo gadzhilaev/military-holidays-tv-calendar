@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -28,10 +29,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -80,6 +86,9 @@ class MainActivity : ComponentActivity() {
     
     private fun setupFullscreen() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        
+        // Предотвращаем засыпание экрана пока приложение активно
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes.layoutInDisplayCutoutMode =
@@ -182,12 +191,6 @@ fun MainScreen() {
         )
     }
     
-    // Обработка долгого нажатия
-    var longPressStartTime by remember { mutableStateOf<Long?>(null) }
-    var isLongPressing by remember { mutableStateOf(false) }
-    var keyPressStartTime by remember { mutableStateOf<Long?>(null) }
-    var isKeyPressing by remember { mutableStateOf(false) }
-    
     // Обновление времени каждую секунду и проверка праздников в полночь
     LaunchedEffect(Unit) {
         var lastCheckedDate = LocalDate.now(moscowZone)
@@ -213,56 +216,41 @@ fun MainScreen() {
         }
     }
     
-    // Обработка долгого нажатия (тап)
-    LaunchedEffect(isLongPressing, longPressStartTime) {
-        if (isLongPressing && longPressStartTime != null && !showFirstLaunchDialog) {
-            delay(3000)
-            if (isLongPressing && !showFirstLaunchDialog) {
-                Log.d(TAG, "Долгое нажатие (тап) обнаружено, открываем диалог настроек")
-                showSettingsDialog = true
-                isLongPressing = false
-                longPressStartTime = null
-            }
-        }
-    }
-    
-    // Обработка долгого нажатия (клавиатура)
-    LaunchedEffect(isKeyPressing, keyPressStartTime) {
-        if (isKeyPressing && keyPressStartTime != null && !showFirstLaunchDialog) {
-            delay(3000)
-            if (isKeyPressing && !showFirstLaunchDialog) {
-                Log.d(TAG, "Долгое нажатие (клавиатура) обнаружено, открываем диалог настроек")
-                showSettingsDialog = true
-                isKeyPressing = false
-                keyPressStartTime = null
-            }
-        }
-    }
-    
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(androidx.tv.material3.MaterialTheme.colorScheme.background)
             .onKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown) {
-                    when (event.key) {
-                        Key.DirectionCenter,
-                        Key.Enter -> {
-                            val currentTime = System.currentTimeMillis()
-                            if (keyPressStartTime == null) {
-                                keyPressStartTime = currentTime
-                                isKeyPressing = true
+                // Обработка кнопки Назад для закрытия диалогов
+                if (event.type == KeyEventType.KeyUp && event.key == Key.Back) {
+                    if (showSettingsDialog) {
+                        Log.d(TAG, "Кнопка Назад нажата, закрываем диалог настроек")
+                        showSettingsDialog = false
+                        true
+                    } else if (showFirstLaunchDialog) {
+                        Log.d(TAG, "Кнопка Назад нажата, закрываем диалог первого запуска (как 'Нет')")
+                        scope.launch {
+                            try {
+                                preferences.setFirstLaunch(false)
+                                preferences.setAutoStartEnabled(false)
+                                showFirstLaunchDialog = false
+                                Log.d(TAG, "Диалог первого запуска закрыт через кнопку Назад")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Ошибка при сохранении настроек", e)
                             }
-                            true
                         }
-                        else -> false
+                        true
+                    } else {
+                        false
                     }
-                } else if (event.type == KeyEventType.KeyUp) {
+                }
+                // Обработка нажатия OK/Enter для открытия настроек
+                else if (event.type == KeyEventType.KeyUp && !showFirstLaunchDialog && !showSettingsDialog) {
                     when (event.key) {
                         Key.DirectionCenter,
                         Key.Enter -> {
-                            isKeyPressing = false
-                            keyPressStartTime = null
+                            Log.d(TAG, "Нажатие OK/Enter обнаружено, открываем диалог настроек")
+                            showSettingsDialog = true
                             true
                         }
                         else -> false
@@ -275,11 +263,10 @@ fun MainScreen() {
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
             ) {
-                // При тапе начинаем отсчет долгого нажатия
-                val currentTime = System.currentTimeMillis()
-                if (longPressStartTime == null) {
-                    longPressStartTime = currentTime
-                    isLongPressing = true
+                // Обработка тапа для открытия настроек
+                if (!showFirstLaunchDialog && !showSettingsDialog) {
+                    Log.d(TAG, "Тап по экрану обнаружен, открываем диалог настроек")
+                    showSettingsDialog = true
                 }
             }
     ) {
@@ -297,25 +284,57 @@ fun MainScreen() {
             )
         }
         
-        // Дата в левом верхнем углу
-        Text(
-            text = uiState.currentDate.format(dateFormatter),
+        // Дата в левом верхнем углу с подложкой и тенью для читаемости
+        Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(24.dp),
-            style = androidx.tv.material3.MaterialTheme.typography.headlineMedium,
-            color = androidx.compose.ui.graphics.Color.Black
-        )
+                .padding(10.dp)
+                .background(
+                    color = Color.Black.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            Text(
+                text = uiState.currentDate.format(dateFormatter),
+                style = androidx.tv.material3.MaterialTheme.typography.headlineMedium.copy(
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    shadow = Shadow(
+                        color = Color.Black,
+                        offset = Offset(0f, 0f),
+                        blurRadius = 6f
+                    )
+                ),
+                color = Color.White
+            )
+        }
         
-        // Время в правом верхнем углу
-        Text(
-            text = uiState.currentTime.format(timeFormatter),
+        // Время в правом верхнем углу с подложкой и тенью
+        Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(24.dp),
-            style = androidx.tv.material3.MaterialTheme.typography.headlineMedium,
-            color = androidx.compose.ui.graphics.Color.Black
-        )
+                .padding(10.dp)
+                .background(
+                    color = Color.Black.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            Text(
+                text = uiState.currentTime.format(timeFormatter),
+                style = androidx.tv.material3.MaterialTheme.typography.headlineMedium.copy(
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    shadow = Shadow(
+                        color = Color.Black,
+                        offset = Offset(0f, 0f),
+                        blurRadius = 6f
+                    )
+                ),
+                color = Color.White
+            )
+        }
         
         // Диалог первого запуска
         if (showFirstLaunchDialog) {
