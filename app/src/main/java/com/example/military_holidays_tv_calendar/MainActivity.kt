@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -57,6 +58,8 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.util.Locale
 import android.graphics.BitmapFactory
 import android.os.Build
 import android.provider.Settings
@@ -65,6 +68,38 @@ import android.widget.Toast
 import java.io.IOException
 
 private const val TAG = "MainActivity"
+
+// Дата начала СВО
+private val SVO_START_DATE = LocalDate.of(2022, 2, 24)
+
+/**
+ * Получает название дня недели на русском языке
+ */
+private fun getDayOfWeekInRussian(date: LocalDate): String {
+    val dayOfWeekFormatter = DateTimeFormatter.ofPattern("EEEE", Locale("ru", "RU"))
+    val dayName = date.format(dayOfWeekFormatter)
+    // Делаем первую букву заглавной
+    return if (dayName.isNotEmpty()) {
+        dayName.substring(0, 1).uppercase(Locale("ru", "RU")) + dayName.substring(1)
+    } else {
+        dayName
+    }
+}
+
+/**
+ * Рассчитывает количество дней с начала СВО
+ * 24.02.2022 считается первым днем, поэтому добавляем 1
+ */
+private fun getDaysSinceSVOStart(currentDate: LocalDate): Long {
+    return ChronoUnit.DAYS.between(SVO_START_DATE, currentDate) + 1
+}
+
+/**
+ * Форматирует количество дней СВО в строку
+ */
+private fun formatSvoDays(days: Long): String {
+    return "$days-й день СВО"
+}
 
 class MainActivity : ComponentActivity() {
     
@@ -289,19 +324,35 @@ fun MainScreen() {
                 .align(Alignment.TopStart)
                 .padding(28.dp)
         ) {
-            Text(
-                text = uiState.currentDate.format(dateFormatter),
-                style = androidx.tv.material3.MaterialTheme.typography.headlineMedium.copy(
-                    fontSize = 80.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    shadow = Shadow(
-                        color = Color.Black.copy(alpha = 0.9f),
-                        offset = Offset(3f, 3f),
-                        blurRadius = 10f
-                    )
-                ),
-                color = Color.White
-            )
+            Column {
+                Text(
+                    text = uiState.currentDate.format(dateFormatter),
+                    style = androidx.tv.material3.MaterialTheme.typography.headlineMedium.copy(
+                        fontSize = 80.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.9f),
+                            offset = Offset(3f, 3f),
+                            blurRadius = 10f
+                        )
+                    ),
+                    color = Color.White
+                )
+                Text(
+                    text = getDayOfWeekInRussian(uiState.currentDate),
+                    style = androidx.tv.material3.MaterialTheme.typography.headlineMedium.copy(
+                        fontSize = 40.sp,
+                        fontWeight = FontWeight.Medium,
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.9f),
+                            offset = Offset(3f, 3f),
+                            blurRadius = 10f
+                        )
+                    ),
+                    color = Color.White,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
         }
         
         // Время в правом верхнем углу без подложки, с крупным зелёным текстом и лёгкой обводкой
@@ -310,19 +361,37 @@ fun MainScreen() {
                 .align(Alignment.TopEnd)
                 .padding(28.dp)
         ) {
-            Text(
-                text = uiState.currentTime.format(timeFormatter),
-                style = androidx.tv.material3.MaterialTheme.typography.headlineMedium.copy(
-                    fontSize = 80.sp,
-                    fontWeight = FontWeight.Bold,
-                    shadow = Shadow(
-                        color = Color.Black.copy(alpha = 0.9f),
-                        offset = Offset(3f, 3f),
-                        blurRadius = 10f
-                    )
-                ),
-                color = Color.White
-            )
+            Column(
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    text = uiState.currentTime.format(timeFormatter),
+                    style = androidx.tv.material3.MaterialTheme.typography.headlineMedium.copy(
+                        fontSize = 80.sp,
+                        fontWeight = FontWeight.Bold,
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.9f),
+                            offset = Offset(3f, 3f),
+                            blurRadius = 10f
+                        )
+                    ),
+                    color = Color.White
+                )
+                Text(
+                    text = formatSvoDays(getDaysSinceSVOStart(uiState.currentDate)),
+                    style = androidx.tv.material3.MaterialTheme.typography.headlineMedium.copy(
+                        fontSize = 40.sp,
+                        fontWeight = FontWeight.Medium,
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.9f),
+                            offset = Offset(3f, 3f),
+                            blurRadius = 10f
+                        )
+                    ),
+                    color = Color.White,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
         }
         
         // Диалог первого запуска
