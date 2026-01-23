@@ -4,14 +4,16 @@ import android.content.Context
 import org.json.JSONObject
 import java.io.IOException
 
+data class HolidayData(
+    val image: String,
+    val text: String? = null
+)
+
 class HolidayRepository(private val context: Context) {
     
-    private var holidaysMap: Map<String, String>? = null
+    private var holidaysMap: Map<String, HolidayData>? = null
     
-    /**
-     * Загружает и парсит JSON файл с праздниками из assets
-     */
-    fun loadHolidays(): Map<String, String> {
+    fun loadHolidays(): Map<String, HolidayData> {
         if (holidaysMap != null) {
             return holidaysMap!!
         }
@@ -22,12 +24,23 @@ class HolidayRepository(private val context: Context) {
                 .use { it.readText() }
             
             val jsonObject = JSONObject(jsonString)
-            val map = mutableMapOf<String, String>()
+            val map = mutableMapOf<String, HolidayData>()
             
             val keys = jsonObject.keys()
             while (keys.hasNext()) {
                 val key = keys.next()
-                map[key] = jsonObject.getString(key)
+                val value = jsonObject.get(key)
+                
+                when (value) {
+                    is String -> {
+                        map[key] = HolidayData(image = value)
+                    }
+                    is JSONObject -> {
+                        val image = value.optString("image", "")
+                        val text = value.optString("text", null).takeIf { !it.isNullOrEmpty() }
+                        map[key] = HolidayData(image = image, text = text)
+                    }
+                }
             }
             
             holidaysMap = map
@@ -41,13 +54,14 @@ class HolidayRepository(private val context: Context) {
         }
     }
     
-    /**
-     * Получает имя файла изображения для указанной даты (формат MM-DD)
-     * Возвращает null, если праздника нет
-     */
     fun getHolidayImage(dateKey: String): String? {
         val holidays = loadHolidays()
-        return holidays[dateKey]
+        return holidays[dateKey]?.image
+    }
+    
+    fun getHolidayText(dateKey: String): String? {
+        val holidays = loadHolidays()
+        return holidays[dateKey]?.text
     }
 }
 
