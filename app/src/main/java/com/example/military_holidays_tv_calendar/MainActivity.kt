@@ -38,6 +38,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import kotlin.math.atan2
+import kotlin.math.sqrt
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -391,6 +397,94 @@ fun MainScreen() {
                     color = Color.White,
                     modifier = Modifier.padding(top = 8.dp)
                 )
+            }
+        }
+        
+        // Надпись "АДУЧИНОВ ПОРЕШАЛ" 23 января
+        val isJanuary23 = uiState.currentDate.monthValue == 1 && uiState.currentDate.dayOfMonth == 23
+        if (isJanuary23) {
+            val density = LocalDensity.current
+            var screenWidth by remember { mutableStateOf(0.dp) }
+            var screenHeight by remember { mutableStateOf(0.dp) }
+            
+            // Золотистый цвет
+            val goldenColor = Color(0xFFFFD700) // Gold color
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .onGloballyPositioned { coordinates ->
+                        screenWidth = with(density) { coordinates.size.width.toDp() }
+                        screenHeight = with(density) { coordinates.size.height.toDp() }
+                    }
+            ) {
+                // ============================================
+                // РЕГУЛИРОВКА НАКЛОНА ТЕКСТА (УГЛА ПОВОРОТА)
+                // ============================================
+                // Угол наклона вычисляется на основе координат начальной и конечной точек
+                // Для изменения наклона измените координаты startX, startY, endX, endY:
+                
+                // Начальная точка (левый верхний угол синей полосы)
+                val startX = 0.dp
+                val startY = screenHeight / 3f
+                
+                // Конечная точка (правый нижний угол синей полосы)
+                // УВЕЛИЧЕН НАКЛОН: увеличена разница по Y для более крутого угла
+                val endX = screenWidth
+                val endY = screenHeight * 1.55f / 3f // Увеличен наклон (возвращено к исходному значению)
+                
+                // Вычисляем угол наклона на основе координат
+                val dx = with(density) { (endX - startX).toPx() }
+                val dy = with(density) { (endY - startY).toPx() }
+                val angleRadians = atan2(dy.toDouble(), dx.toDouble())
+                
+                // УГОЛ ПОВОРОТА В ГРАДУСАХ - увеличен для более крутого наклона
+                // Можно также задать фиксированный угол, например: val angle = 20f
+                val angle = (angleRadians * 180.0 / kotlin.math.PI).toFloat() * 1.2f // Увеличиваем угол на 20%
+                
+                // ============================================
+                // РЕГУЛИРОВКА РАЗМЕРА ТЕКСТА
+                // ============================================
+                // Размер шрифта рассчитывается на основе диагонали экрана
+                val screenDiagonal = with(density) { 
+                    sqrt(screenWidth.toPx() * screenWidth.toPx() + screenHeight.toPx() * screenHeight.toPx())
+                }
+                
+                // РАЗМЕР ШРИФТА: измените эти параметры для настройки размера:
+                // - screenDiagonal / 7f - делитель увеличен на 1 для уменьшения размера (было / 6f)
+                //   Например: / 6f = больше, / 8f = еще меньше
+                // - 100f - минимальный размер в sp увеличен (было 80f)
+                // - 400f - максимальный размер в sp увеличен (было 300f)
+                val fontSize = with(density) { 
+                    (screenDiagonal / 5f).coerceIn(100f, 350f).toSp() 
+                }
+                
+                // АЛЬТЕРНАТИВНО: можно задать фиксированный размер напрямую:
+                // val fontSize = 120.sp  // фиксированный размер 120sp
+                
+                // Позиционируем текст точно по центру экрана
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        // ПРИМЕНЕНИЕ УГЛА ПОВОРОТА: здесь применяется вычисленный угол
+                        // .rotate(angle) - поворачивает текст на заданный угол
+                        // Можно заменить на фиксированный угол, например: .rotate(15f)
+                        .rotate(angle)
+                ) {
+                    Text(
+                        text = "АДУЧИНОВ ПОРЕШАЛ",
+                        style = androidx.tv.material3.MaterialTheme.typography.headlineLarge.copy(
+                            fontSize = fontSize,
+                            fontWeight = FontWeight.Bold,
+                            shadow = Shadow(
+                                color = Color.Black.copy(alpha = 0.9f),
+                                offset = Offset(3f, 3f),
+                                blurRadius = 10f
+                            )
+                        ),
+                        color = goldenColor
+                    )
+                }
             }
         }
         
